@@ -50,6 +50,7 @@ from oslo_utils import importutils
 from oslo_utils import strutils
 from oslo_utils import units
 from oslo_utils import versionutils
+from re import search
 
 from nova.compute import utils as compute_utils
 import nova.conf
@@ -1206,6 +1207,28 @@ class Host(object):
             return (self.get_memory_mb_total() -
                    (self._get_avail_memory_kb() // units.Ki))
 
+    def _get_cpu_psi(self):
+        """Get the CPU preasure stall information (PSI).
+
+        :returns: percentage of total CPU stall time (60s average).
+        """
+        try:
+            psi_file = open('/proc/pressure/cpu', 'r')
+            avg_line = psi_file.readline().strip()
+            # Output regex of the PSI module
+            pattern = 'some avg10=(\d+\.\d+) avg60=(\d+\.\d+) avg300=(\d+\.\d+) total=(\d+)'
+
+            # Extract the group representing the 60s average
+            if match := search(pattern, avg_line):
+                avg = float(match.group(2))
+                return avg
+        except Exception as e:
+            LOG.error("Failed to read CPU info from `/proc/pressure/cpu`. "
+                        "Error: %s", str(e)) 
+
+        # Default to 0 if the information cannot be fetched
+        return 0
+
     def get_cpu_stats(self):
         """Returns the current CPU state of the host with frequency."""
         stats = self.get_connection().getCPUStats(
@@ -1213,6 +1236,7 @@ class Host(object):
         # getInfo() returns various information about the host node
         # No. 3 is the expected CPU frequency.
         stats["frequency"] = self._get_hardware_info()[3]
+        stats["psi"] = self._get_cpu_psi()
         return stats
 
     def _check_machine_type(self, caps, mach_type):

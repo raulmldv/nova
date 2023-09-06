@@ -98,4 +98,8 @@ class Monitor(base.CPUMonitorBase):
         perc = (used - prev_used) / cputime
         self._data["cpu.percent"] = int(perc * 100)
 
+        # Transformation required for not loosing precision.
+        # (objects.MonitorMetric.value field requires an integer)
+        self._data["cpu.psi.percent"] = int(stats["psi"] * 100)
+
         self._cpu_stats = stats.copy()

@@ -724,6 +724,7 @@ class MonitorMetricType(BaseNovaEnum):
     CPU_KERNEL_PERCENT = "cpu.kernel.percent"
     CPU_IDLE_PERCENT = "cpu.idle.percent"
     CPU_IOWAIT_PERCENT = "cpu.iowait.percent"
+    CPU_PSI = "cpu.psi.percent"
     CPU_PERCENT = "cpu.percent"
     NUMA_MEM_BW_MAX = "numa.membw.max"
     NUMA_MEM_BW_CURRENT = "numa.membw.current"
@@ -738,6 +739,7 @@ class MonitorMetricType(BaseNovaEnum):
         CPU_KERNEL_PERCENT,
         CPU_IDLE_PERCENT,
         CPU_IOWAIT_PERCENT,
+        CPU_PSI,
         CPU_PERCENT,
         NUMA_MEM_BW_MAX,
         NUMA_MEM_BW_CURRENT,
