@@ -26,7 +26,9 @@ import os_traits
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import excutils
+from oslo_utils import timeutils
 import retrying
+from re import search
 
 from nova.compute import claims
 from nova.compute import monitors
@@ -970,6 +972,35 @@ class ResourceTracker(object):
                 # the instance had other pending changes
                 instance.save()
 
+    def _get_cpu_psi(self):
+        """Get the CPU preasure stall information (PSI).
+
+        :returns: percentage of total CPU stall time (60s average).
+        """
+        # Default to 0 if the information cannot be fetched
+        psi_value = 0
+
+        try:
+            psi_file = open('/proc/pressure/cpu', 'r')
+            avg_line = psi_file.readline().strip()
+            # Output regex of the PSI module
+            pattern = 'some avg10=(\d+\.\d+) avg60=(\d+\.\d+) avg300=(\d+\.\d+) total=(\d+)'
+
+            # Extract the group representing the 60s average
+            if match := search(pattern, avg_line):
+                psi_value = float(match.group(2))
+        except Exception as e:
+            LOG.error("Failed to read CPU info from `/proc/pressure/cpu`. "
+                        "Error: %s", str(e))
+
+        psi_entry = {
+            'name': 'cpu.psi.percent',
+            'timestamp': utils.strtime(timeutils.utcnow()),
+            'source': 'compute.ResourceTracker',
+            'value': psi_value,
+        }
+        return psi_entry
+
     @utils.synchronized(COMPUTE_RESOURCE_SEMAPHORE, fair=True)
     def _update_available_resource(self, context, resources, startup=False):
 
@@ -1055,6 +1086,8 @@ class ResourceTracker(object):
         self._report_final_resource_view(nodename)
 
         metrics = self._get_host_metrics(context, nodename)
+        psi_metric = self._get_cpu_psi()
+        metrics.append(psi_metric)
         # TODO(pmurray): metrics should not be a json string in ComputeNode,
         # but it is. This should be changed in ComputeNode
         cn.metrics = jsonutils.dumps(metrics)
